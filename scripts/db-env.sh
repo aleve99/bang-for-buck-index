@@ -4,9 +4,14 @@
 # snapshot-friendly inside Cloud Agent VMs.
 set -euo pipefail
 
-PG_VERSION="${PG_VERSION:-16}"
-PG_BIN="/usr/lib/postgresql/${PG_VERSION}/bin"
-if [ -d "$PG_BIN" ]; then
+# Locate Postgres binaries. Prefer an explicit PG_VERSION, otherwise pick the
+# highest version installed under /usr/lib/postgresql (Debian/Ubuntu layout).
+if [ -n "${PG_VERSION:-}" ] && [ -d "/usr/lib/postgresql/${PG_VERSION}/bin" ]; then
+  PG_BIN="/usr/lib/postgresql/${PG_VERSION}/bin"
+else
+  PG_BIN="$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -n 1 || true)"
+fi
+if [ -n "${PG_BIN:-}" ] && [ -d "$PG_BIN" ]; then
   export PATH="$PG_BIN:$PATH"
 fi
 

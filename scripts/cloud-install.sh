@@ -9,6 +9,9 @@ cd "$ROOT"
 echo "[install] Installing JS dependencies with pnpm"
 pnpm install --frozen-lockfile
 
+echo "[install] Ensuring PostgreSQL is installed"
+bash "$DIR/db-install-postgres.sh"
+
 echo "[install] Initializing and starting local Postgres"
 bash "$DIR/db-start.sh"
 

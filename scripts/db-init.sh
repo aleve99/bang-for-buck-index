@@ -5,6 +5,11 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 source "$DIR/db-env.sh"
 
+bash "$DIR/db-install-postgres.sh"
+# Re-source so PATH picks up newly installed Postgres binaries.
+# shellcheck source=/dev/null
+source "$DIR/db-env.sh"
+
 if [ ! -f "$PGDATA/PG_VERSION" ]; then
   echo "[db-init] Creating cluster at $PGDATA"
   mkdir -p "$PGDATA"
