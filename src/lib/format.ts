@@ -1,3 +1,5 @@
+import type { CurrencyUnit, LeaderboardRow } from "@/types";
+
 const CURRENCY_LOCALE: Record<string, string> = {
   USD: "en-US",
   EUR: "de-DE",
@@ -5,6 +7,32 @@ const CURRENCY_LOCALE: Record<string, string> = {
   GBP: "en-GB",
   JPY: "ja-JP",
 };
+
+export function resolveClpa(
+  row: Pick<LeaderboardRow, "clpaLocal" | "clpaUsd" | "clpaEur" | "clpaPpp" | "currencyCode">,
+  unit: CurrencyUnit,
+  ppp: boolean,
+): { value: number; currency: string } {
+  if (unit === "LOCAL") {
+    return { value: row.clpaLocal, currency: row.currencyCode };
+  }
+  if (unit === "EUR") {
+    if (!ppp) return { value: row.clpaEur, currency: "EUR" };
+    const value =
+      row.clpaUsd > 0
+        ? Number((row.clpaPpp * (row.clpaEur / row.clpaUsd)).toFixed(2))
+        : row.clpaEur;
+    return { value, currency: "EUR" };
+  }
+  if (ppp) return { value: row.clpaPpp, currency: "USD" };
+  return { value: row.clpaUsd, currency: "USD" };
+}
+
+export function clpaUnitLabel(unit: CurrencyUnit, ppp: boolean): string {
+  if (unit === "LOCAL") return "Local currency";
+  if (unit === "EUR") return ppp ? "PPP EUR" : "EUR";
+  return ppp ? "PPP USD" : "USD";
+}
 
 export function formatCurrency(value: number, currency: string): string {
   try {

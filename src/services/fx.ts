@@ -10,17 +10,34 @@ interface FrankfurterResponse {
   rates: Record<string, number>;
 }
 
+export interface RateDelta {
+  currencyCode: string;
+  previous: number | null;
+  next: number;
+}
+
 /**
  * Fetch latest FX rates (base USD) and upsert them into exchange_rates.
  * Frankfurter returns "1 USD = X local", so rate_to_usd = 1 / X.
  */
-export async function syncExchangeRates(): Promise<{ updated: number; date: string }> {
-  const currencies = await db
-    .select({ code: exchangeRates.currencyCode })
+export async function syncExchangeRates(): Promise<{
+  updated: number;
+  date: string;
+  deltas: RateDelta[];
+}> {
+  const existing = await db
+    .select({
+      currencyCode: exchangeRates.currencyCode,
+      rateToUsd: exchangeRates.rateToUsd,
+    })
     .from(exchangeRates);
 
-  const symbols = currencies
-    .map((c) => c.code)
+  const previousByCode = new Map(
+    existing.map((row) => [row.currencyCode, parseFloat(row.rateToUsd)]),
+  );
+
+  const symbols = existing
+    .map((c) => c.currencyCode)
     .filter((c) => c !== "USD")
     .join(",");
 
@@ -41,6 +58,17 @@ export async function syncExchangeRates(): Promise<{ updated: number; date: stri
     }
   }
 
+  const deltas: RateDelta[] = [];
+  for (const row of rows) {
+    const next = parseFloat(row.rateToUsd);
+    const previous = previousByCode.has(row.currencyCode)
+      ? previousByCode.get(row.currencyCode)!
+      : null;
+    if (previous !== next) {
+      deltas.push({ currencyCode: row.currencyCode, previous, next });
+    }
+  }
+
   for (const row of rows) {
     await db
       .insert(exchangeRates)
@@ -51,5 +79,12 @@ export async function syncExchangeRates(): Promise<{ updated: number; date: stri
       });
   }
 
-  return { updated: rows.length, date: data.date };
+  console.log(
+    `[fx] deltas ${deltas.length}:`,
+    deltas.length
+      ? deltas.map((d) => `${d.currencyCode} ${d.previous}→${d.next}`).join(" ")
+      : "none",
+  );
+
+  return { updated: rows.length, date: data.date, deltas };
 }

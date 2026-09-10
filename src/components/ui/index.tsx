@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -49,9 +51,13 @@ export function Button({ className, variant = "primary", ...props }: ButtonProps
   );
 }
 
-export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
+export const Input = React.forwardRef<
+  HTMLInputElement,
+  React.InputHTMLAttributes<HTMLInputElement>
+>(function Input({ className, ...props }, ref) {
   return (
     <input
+      ref={ref}
       className={cn(
         "h-10 w-full rounded-lg border border-border bg-surface-2 px-3 text-sm text-foreground outline-none placeholder:text-muted focus:border-accent",
         className,
@@ -59,7 +65,7 @@ export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInp
       {...props}
     />
   );
-}
+});
 
 export function Select({
   className,
@@ -99,5 +105,83 @@ export function NavLink({
     >
       {children}
     </Link>
+  );
+}
+
+export function Switch({
+  checked,
+  onCheckedChange,
+  className,
+  ...props
+}: {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+} & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "onChange">) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onCheckedChange(!checked)}
+      className={cn(
+        "relative inline-flex h-6 w-10 shrink-0 items-center rounded-full border border-border transition",
+        checked ? "bg-accent" : "bg-surface-2",
+        className,
+      )}
+      {...props}
+    >
+      <span
+        className={cn(
+          "pointer-events-none block h-4 w-4 rounded-full shadow transition",
+          checked ? "translate-x-5 bg-accent-foreground" : "translate-x-1 bg-foreground",
+        )}
+      />
+    </button>
+  );
+}
+
+export function Dialog({
+  open,
+  onOpenChange,
+  children,
+  className,
+  "data-testid": dataTestId,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  children: React.ReactNode;
+  className?: string;
+  "data-testid"?: string;
+}) {
+  React.useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onOpenChange(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, onOpenChange]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 pt-16">
+      <div
+        className="fixed inset-0 bg-black/70"
+        aria-hidden
+        onClick={() => onOpenChange(false)}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        data-testid={dataTestId}
+        className={cn(
+          "relative z-10 mb-8 w-full max-w-lg rounded-xl border border-border bg-surface p-5 shadow-lg",
+          className,
+        )}
+      >
+        {children}
+      </div>
+    </div>
   );
 }

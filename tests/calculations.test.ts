@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clpaToPpp, clpaToUsd, computeCLPA } from "@/lib/calculations";
+import { clpaToEur, clpaToPpp, clpaToUsd, computeCLPA } from "@/lib/calculations";
 
 describe("computeCLPA", () => {
   it("matches the PRD Oettinger example (0.5L, 4.7% ABV, €0.49 -> 20.85)", () => {
@@ -52,5 +52,13 @@ describe("currency normalization", () => {
 
   it("leaves USD unchanged at rate 1", () => {
     expect(clpaToUsd(72.6, 1)).toBe(72.6);
+  });
+
+  it("converts Oettinger USD CLPA to EUR (22.62 / 1.085 ≈ 20.85)", () => {
+    expect(clpaToEur(22.62, 1.085)).toBeCloseTo(20.85, 2);
+  });
+
+  it("treats a non-positive EUR rate as 1", () => {
+    expect(clpaToEur(100, 0)).toBe(100);
   });
 });

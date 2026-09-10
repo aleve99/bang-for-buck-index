@@ -3,16 +3,28 @@
 import { useActionState, useState } from "react";
 import { submitPrice, type SubmitPriceState } from "@/actions/submit-price";
 import { computeCLPA } from "@/lib/calculations";
-import { Button, Card, Input, Label, Select } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
+import {
+  BeerStepFields,
+  ClpaPreview,
+  PurchaseStepFields,
+  type CountryOption,
+} from "@/components/forms/price-submission-fields";
 
 const initial: SubmitPriceState | null = null;
 
+const STEP_LABELS = ["Beer", "Purchase", "Review"] as const;
+const BEER_FIELDS = new Set(["beerName", "style", "abv", "countryCode"]);
+
 export function PriceSubmissionForm({
   countries,
+  embedded = false,
 }: {
-  countries: { code: string; name: string; currencyCode: string }[];
+  countries: CountryOption[];
+  embedded?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(submitPrice, initial);
+  const [step, setStep] = useState(1);
 
   const [abv, setAbv] = useState(4.7);
   const [packSize, setPackSize] = useState(1);
@@ -30,150 +42,101 @@ export function PriceSubmissionForm({
 
   const err = (f: string) => state?.fieldErrors?.[f]?.[0];
 
-  return (
-    <div className="grid gap-6 md:grid-cols-[1fr_320px]">
-      <Card>
-        <form action={formAction} className="grid gap-4 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <Label htmlFor="beerName">Beer name</Label>
-            <Input id="beerName" name="beerName" placeholder="Oettinger Pils" required />
-            {err("beerName") && <p className="mt-1 text-xs text-red-400">{err("beerName")}</p>}
-          </div>
-          <div>
-            <Label htmlFor="brewery">Brewery (optional)</Label>
-            <Input id="brewery" name="brewery" placeholder="Oettinger Brauerei" />
-          </div>
-          <div>
-            <Label htmlFor="style">Style</Label>
-            <Input id="style" name="style" placeholder="Pilsner" required />
-            {err("style") && <p className="mt-1 text-xs text-red-400">{err("style")}</p>}
-          </div>
-          <div>
-            <Label htmlFor="countryCode">Country</Label>
-            <Select id="countryCode" name="countryCode" defaultValue="DE" required>
-              {countries.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.name} ({c.code})
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="city">City (optional)</Label>
-            <Input id="city" name="city" placeholder="Berlin" />
-          </div>
-          <div>
-            <Label htmlFor="venueType">Venue type</Label>
-            <Select id="venueType" name="venueType" defaultValue="supermarket" required>
-              <option value="supermarket">Supermarket</option>
-              <option value="convenience_store">Convenience store</option>
-              <option value="bar_pub">Bar / Pub</option>
-              <option value="restaurant">Restaurant</option>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="abv">ABV %</Label>
-            <Input
-              id="abv"
-              name="abv"
-              type="number"
-              step="0.1"
-              value={abv}
-              onChange={(e) => setAbv(Number(e.target.value))}
-              required
-            />
-            {err("abv") && <p className="mt-1 text-xs text-red-400">{err("abv")}</p>}
-          </div>
-          <div>
-            <Label htmlFor="packSize">Pack size</Label>
-            <Input
-              id="packSize"
-              name="packSize"
-              type="number"
-              min={1}
-              value={packSize}
-              onChange={(e) => setPackSize(Number(e.target.value))}
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="volumeMl">Volume per unit (ml)</Label>
-            <Input
-              id="volumeMl"
-              name="volumeMl"
-              type="number"
-              value={volumeMl}
-              onChange={(e) => setVolumeMl(Number(e.target.value))}
-              required
-            />
-            {err("volumeMl") && <p className="mt-1 text-xs text-red-400">{err("volumeMl")}</p>}
-          </div>
-          <div>
-            <Label htmlFor="priceLocal">Price (local)</Label>
-            <Input
-              id="priceLocal"
-              name="priceLocal"
-              type="number"
-              step="0.01"
-              value={priceLocal}
-              onChange={(e) => setPriceLocal(Number(e.target.value))}
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="currencyCode">Currency</Label>
-            <Select id="currencyCode" name="currencyCode" defaultValue="EUR" required>
-              {[...new Set(countries.map((c) => c.currencyCode))].map((cur) => (
-                <option key={cur} value={cur}>
-                  {cur}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="sm:col-span-2">
-            <Button type="submit" disabled={pending} className="w-full">
-              {pending ? "Submitting…" : "Submit price"}
-            </Button>
-          </div>
+  function firstInvalidStep(form: HTMLFormElement): 1 | 2 | null {
+    const invalid = Array.from(form.elements).find((el) => {
+      return (
+        (el instanceof HTMLInputElement || el instanceof HTMLSelectElement) &&
+        !el.checkValidity()
+      );
+    }) as HTMLInputElement | HTMLSelectElement | undefined;
+    if (!invalid) return null;
+    return BEER_FIELDS.has(invalid.id) ? 1 : 2;
+  }
 
-          {state && (
-            <div
-              className={`sm:col-span-2 rounded-lg border px-3 py-2 text-sm ${
-                state.ok
-                  ? "border-green-700 bg-green-950/40 text-green-300"
-                  : "border-red-800 bg-red-950/40 text-red-300"
-              }`}
-              data-testid="submit-result"
-            >
-              {state.message}
-            </div>
-          )}
-        </form>
-      </Card>
+  const body = (
+    <form
+      action={formAction}
+      className="grid gap-4"
+      onSubmit={(e) => {
+        if (step !== 3) e.preventDefault();
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter") return;
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag === "TEXTAREA" || tag === "BUTTON" || tag === "A") return;
+        if (step < 3) {
+          e.preventDefault();
+          setStep((s) => Math.min(3, s + 1));
+        }
+      }}
+    >
+      <p className="text-sm text-muted" data-testid="submit-step">
+        Step {step} of 3 · {STEP_LABELS[step - 1]}
+      </p>
 
-      <Card className="h-fit">
-        <h3 className="text-sm font-semibold text-muted">Live CLPA preview</h3>
-        <div className="mt-3 space-y-2">
-          <div className="flex items-baseline justify-between">
-            <span className="text-xs text-muted">Pure alcohol</span>
-            <span className="font-mono text-sm">
-              {preview ? `${preview.pureAlcoholLiters.toFixed(5)} L` : "—"}
-            </span>
-          </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-xs text-muted">CLPA (local)</span>
-            <span
-              className="font-mono text-2xl font-bold text-accent"
-              data-testid="clpa-preview"
-            >
-              {preview ? preview.clpaLocal.toFixed(2) : "—"}
-            </span>
-          </div>
-          <p className="pt-2 text-xs text-muted">
-            CLPA = price ÷ (pack × volume × ABV). Lower means more alcohol per unit of money.
-          </p>
+      <div hidden={step !== 1}>
+        <BeerStepFields countries={countries} abv={abv} onAbvChange={setAbv} error={err} />
+      </div>
+      <div hidden={step !== 2}>
+        <PurchaseStepFields
+          countries={countries}
+          packSize={packSize}
+          volumeMl={volumeMl}
+          priceLocal={priceLocal}
+          onPackSizeChange={setPackSize}
+          onVolumeMlChange={setVolumeMl}
+          onPriceLocalChange={setPriceLocal}
+          error={err}
+        />
+      </div>
+      <div hidden={step !== 3}>
+        <ClpaPreview preview={preview} />
+      </div>
+
+      <div className="flex gap-2">
+        {step > 1 && (
+          <Button type="button" variant="outline" onClick={() => setStep((s) => s - 1)}>
+            Back
+          </Button>
+        )}
+        {step < 3 && (
+          <Button type="button" className="ml-auto" onClick={() => setStep((s) => s + 1)}>
+            Next
+          </Button>
+        )}
+        {step === 3 && (
+          <Button
+            type="submit"
+            disabled={pending}
+            className="ml-auto"
+            onClick={(e) => {
+              const form = e.currentTarget.form;
+              if (!form || form.checkValidity()) return;
+              e.preventDefault();
+              const next = firstInvalidStep(form);
+              if (next) setStep(next);
+            }}
+          >
+            {pending ? "Submitting…" : "Submit price"}
+          </Button>
+        )}
+      </div>
+
+      {state && (
+        <div
+          className={`rounded-lg border px-3 py-2 text-sm ${
+            state.ok
+              ? "border-green-700 bg-green-950/40 text-green-300"
+              : "border-red-800 bg-red-950/40 text-red-300"
+          }`}
+          data-testid="submit-result"
+        >
+          {state.message}
         </div>
-      </Card>
-    </div>
+      )}
+    </form>
   );
+
+  if (embedded) return body;
+  return <Card>{body}</Card>;
 }
