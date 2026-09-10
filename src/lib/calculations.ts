@@ -37,6 +37,15 @@ export function clpaToUsd(clpaLocal: number, rateToUsd: number): number {
   return Number((clpaLocal * rateToUsd).toFixed(2));
 }
 
+/**
+ * Convert a USD CLPA into EUR.
+ * CLPA_EUR = CLPA_USD / EUR_rate_to_usd
+ */
+export function clpaToEur(clpaUsd: number, eurRateToUsd: number): number {
+  if (eurRateToUsd <= 0) eurRateToUsd = 1;
+  return Number((clpaUsd / eurRateToUsd).toFixed(2));
+}
+
 /** Apply Purchasing Power Parity normalization to a USD CLPA. */
 export function clpaToPpp(clpaUsd: number, pppFactor: number): number {
   if (pppFactor <= 0) return clpaUsd;

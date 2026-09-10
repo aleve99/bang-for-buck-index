@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { beers, countries, exchangeRates, priceEntries } from "@/db/schema";
 import { computeCLPA } from "@/lib/calculations";
@@ -60,7 +60,12 @@ export async function submitPrice(
   const existing = await db
     .select({ id: beers.id })
     .from(beers)
-    .where(eq(beers.name, input.beerName))
+    .where(
+      and(
+        eq(beers.name, input.beerName),
+        eq(beers.countryCode, input.countryCode.toUpperCase()),
+      ),
+    )
     .limit(1);
 
   let beerId = existing[0]?.id;
@@ -89,11 +94,16 @@ export async function submitPrice(
     currencyCode: input.currencyCode.toUpperCase(),
     pureAlcoholLiters: pureAlcoholLiters.toFixed(5),
     clpaLocal: clpaLocal.toFixed(2),
+    receiptImageUrl: input.receiptImageUrl || null,
     // Crowdsourced entries default to unverified pending moderation.
     verified: false,
   });
 
+  const countryCode = input.countryCode.toUpperCase();
   revalidatePath("/");
+  revalidatePath("/submit");
+  revalidatePath(`/country/${countryCode}`);
+  revalidatePath(`/styles/${encodeURIComponent(input.style)}`);
 
   return {
     ok: true,
