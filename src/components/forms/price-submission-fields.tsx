@@ -66,6 +66,7 @@ export function PurchaseStepFields({
   onPackSizeChange,
   onVolumeMlChange,
   onPriceLocalChange,
+  onReceiptChange,
   error,
 }: {
   countries: CountryOption[];
@@ -75,6 +76,7 @@ export function PurchaseStepFields({
   onPackSizeChange: (v: number) => void;
   onVolumeMlChange: (v: number) => void;
   onPriceLocalChange: (v: number) => void;
+  onReceiptChange: (file: File | null) => void;
   error: (field: string) => string | undefined;
 }) {
   const currencies = [...new Set(countries.map((c) => c.currencyCode))];
@@ -140,16 +142,17 @@ export function PurchaseStepFields({
         </Select>
       </div>
       <div className="sm:col-span-2">
-        <Label htmlFor="receiptImageUrl">Receipt image URL (optional)</Label>
+        <Label htmlFor="receipt">Receipt photo (optional)</Label>
         <Input
-          id="receiptImageUrl"
-          name="receiptImageUrl"
-          type="url"
-          placeholder="https://"
+          id="receipt"
+          name="receipt"
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          data-testid="receipt-input"
+          onChange={(e) => onReceiptChange(e.target.files?.[0] ?? null)}
         />
-        {error("receiptImageUrl") && (
-          <p className="mt-1 text-xs text-red-400">{error("receiptImageUrl")}</p>
-        )}
+        <p className="mt-1 text-xs text-muted">PNG, JPEG, WebP, or GIF · max 5 MB</p>
+        {error("receipt") && <p className="mt-1 text-xs text-red-400">{error("receipt")}</p>}
       </div>
     </div>
   );
@@ -157,8 +160,12 @@ export function PurchaseStepFields({
 
 export function ClpaPreview({
   preview,
+  receiptPreview,
+  receiptName,
 }: {
   preview: { clpaLocal: number; pureAlcoholLiters: number } | null;
+  receiptPreview: string | null;
+  receiptName: string | null;
 }) {
   return (
     <div className="space-y-2">
@@ -175,6 +182,20 @@ export function ClpaPreview({
           {preview ? preview.clpaLocal.toFixed(2) : "—"}
         </span>
       </div>
+      {receiptPreview ? (
+        <div className="pt-2">
+          <p className="mb-2 text-xs text-muted">Receipt · {receiptName}</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={receiptPreview}
+            alt="Receipt preview"
+            className="max-h-40 rounded-lg border border-border object-contain"
+            data-testid="receipt-preview"
+          />
+        </div>
+      ) : (
+        <p className="pt-2 text-xs text-muted">No receipt attached.</p>
+      )}
       <p className="pt-2 text-xs text-muted">
         CLPA = price ÷ (pack × volume × ABV). Lower means more alcohol per unit of money.
       </p>

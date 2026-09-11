@@ -25,7 +25,9 @@ test("crowdsourced submit stays off the board until admin verifies", async ({ pa
   await page.getByRole("button", { name: "Next" }).click();
   await page.getByLabel("Volume per unit (ml)").fill("500");
   await page.getByLabel("Price (local)").fill("1.00");
+  await page.getByTestId("receipt-input").setInputFiles("tests/e2e/fixtures/receipt.png");
   await page.getByRole("button", { name: "Next" }).click();
+  await expect(page.getByTestId("receipt-preview")).toBeVisible();
   await page.getByRole("button", { name: "Submit price" }).click();
   await expect(page.getByTestId("submit-result")).toContainText(/pending verification/i);
 
@@ -35,6 +37,7 @@ test("crowdsourced submit stays off the board until admin verifies", async ({ pa
   await signInAdmin(page);
   const pending = page.getByTestId("pending-row").filter({ hasText: beerName });
   await expect(pending).toBeVisible();
+  await expect(pending.getByTestId("receipt-thumb")).toBeVisible();
   await pending.getByRole("button", { name: "Verify" }).click();
   await expect(page.getByTestId("pending-row").filter({ hasText: beerName })).toHaveCount(0);
 

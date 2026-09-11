@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Badge, Input, Select } from "@/components/ui";
+import { AbvRangeFilter } from "@/components/leaderboard/abv-range";
+import { Badge, Select } from "@/components/ui";
 import { clpaUnitLabel, formatCurrency, formatPack, resolveClpa, venueLabel } from "@/lib/format";
 import { useCurrencyToggle } from "@/hooks/use-currency-toggle";
 import type { LeaderboardRow } from "@/types";
@@ -66,48 +67,13 @@ export function LeaderboardTable({
             ))}
           </Select>
         </div>
-        <div className="flex w-56 items-end gap-2">
-          <div className="flex-1">
-            <label htmlFor="abv-min" className="mb-1 block text-xs font-medium text-muted">
-              ABV min
-            </label>
-            <Input
-              id="abv-min"
-              data-testid="abv-min"
-              type="number"
-              min={0}
-              max={abvCeiling}
-              step={0.1}
-              value={abvMin}
-              aria-label="ABV min"
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                if (Number.isNaN(v)) return;
-                setAbvMin(Math.min(Math.max(0, v), abvMax));
-              }}
-            />
-          </div>
-          <div className="flex-1">
-            <label htmlFor="abv-max" className="mb-1 block text-xs font-medium text-muted">
-              ABV max
-            </label>
-            <Input
-              id="abv-max"
-              data-testid="abv-max"
-              type="number"
-              min={0}
-              max={abvCeiling}
-              step={0.1}
-              value={abvMax}
-              aria-label="ABV max"
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                if (Number.isNaN(v)) return;
-                setAbvMax(Math.max(Math.min(v, abvCeiling), abvMin));
-              }}
-            />
-          </div>
-        </div>
+        <AbvRangeFilter
+          min={abvMin}
+          max={abvMax}
+          ceiling={abvCeiling}
+          onMinChange={setAbvMin}
+          onMaxChange={setAbvMax}
+        />
         <div className="ml-auto self-center text-sm text-muted">
           {filtered.length} result{filtered.length === 1 ? "" : "s"}
         </div>

@@ -12,6 +12,7 @@ export const PriceSubmissionSchema = z.object({
   priceLocal: z.coerce.number().positive(),
   currencyCode: z.string().length(3),
   city: z.string().max(100).optional(),
+  /** Legacy URL fallback; new submissions store a Storage object path instead. */
   receiptImageUrl: z.string().url().optional().or(z.literal("")),
 });
 
