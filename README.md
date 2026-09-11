@@ -7,33 +7,37 @@ This repo implements **PureHop** — MVP Phase 1 (beer). See [`PRD.md`](./PRD.md
 ## Stack
 
 - **Next.js 15** (App Router, Server Components) + **TypeScript** (strict)
-- **PostgreSQL 16** (local user-owned cluster) + **Drizzle ORM**
+- **Supabase CLI** local stack (Postgres, Auth, REST, Studio) + **Drizzle ORM**
 - **Tailwind CSS v4** + shadcn-style UI primitives
 - **Zod** validated Server Actions, **Vitest** unit tests, **Playwright** E2E
-
-> The PRD targets Supabase for local dev. To keep the Cloud Agent environment
-> reproducible and snapshot-friendly (no Docker-in-Docker), local development
-> runs against a native Postgres cluster. The SQL schema and seed still live
-> under `supabase/migrations/` and `supabase/seed.sql`, and `pnpm db:reset`
-> mirrors `supabase db reset`.
 
 ## Prerequisites
 
 - Node.js `>= 20` and `pnpm`
-- PostgreSQL 16 client/server binaries (`/usr/lib/postgresql/16/bin`)
-  - Install on Debian/Ubuntu: `sudo apt-get install -y postgresql postgresql-contrib`
+- Docker (required by `supabase start`)
 
 ## Quick start
 
 ```bash
 pnpm install
-cp .env.example .env.local        # DATABASE_URL etc.
+cp .env.example .env.local        # ADMIN_SECRET etc. URLs are filled by db:start
 
-pnpm db:start                     # init + start local Postgres (idempotent)
-pnpm db:reset                     # apply migrations + seed
+pnpm db:start                     # supabase start + write .env.local
+pnpm db:reset                     # optional: recreate DB from migrations + seed
 
 pnpm dev                          # http://localhost:3000
 ```
+
+Local services after `pnpm db:start`:
+
+| URL | What |
+| --- | --- |
+| http://localhost:3000 | App |
+| http://127.0.0.1:54323 | Supabase Studio |
+| postgresql://postgres:postgres@127.0.0.1:54322/postgres | Postgres |
+| http://127.0.0.1:54321 | Kong / API |
+
+Admin moderation: open `/admin`, password = `ADMIN_SECRET` (default `dev-admin-secret`). Crowdsourced rows stay `verified=false` until you Verify.
 
 ## Common commands
 
@@ -41,8 +45,10 @@ pnpm dev                          # http://localhost:3000
 | --- | --- |
 | `pnpm dev` | Start the Next.js dev server |
 | `pnpm build` / `pnpm start` | Production build / serve |
-| `pnpm db:start` | Init (if needed) and start the local Postgres cluster |
-| `pnpm db:reset` | Drop schema, apply `supabase/migrations/*`, run `supabase/seed.sql` |
+| `pnpm db:start` | `supabase start` (idempotent) and sync `.env.local` |
+| `pnpm db:reset` | `supabase db reset` — migrations + `supabase/seed.sql` |
+| `pnpm db:stop` | Stop the local Supabase containers (data kept) |
+| `pnpm db:types` | Generate `src/types/database.ts` from local schema |
 | `pnpm test` | Vitest unit tests (CLPA math) |
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm lint` | ESLint (`next lint`) |
@@ -50,8 +56,9 @@ pnpm dev                          # http://localhost:3000
 
 ## Features
 
-- **Global leaderboard** (`/`) ranked by CLPA with currency-unit toggle (USD / Local / PPP) and venue/style filters.
+- **Global leaderboard** (`/`) ranked by CLPA with currency-unit toggle (USD / EUR / Local), PPP switch, venue/style/ABV filters.
 - **Country leaderboards** (`/country/[code]`, e.g. `/country/cz`).
 - **Style leaderboards** (`/styles/[style]`, e.g. `/styles/Pilsner`).
-- **Crowdsourced submission** (`/submit`) with a live CLPA preview and Zod-validated Server Action.
+- **Crowdsourced submission** (`/submit` and `+ Add`) with a live CLPA preview. Rows are unverified until an admin approves them.
+- **Admin queue** (`/admin`) to verify or reject pending prices.
 - **FX sync cron** (`/api/cron/sync-fx`) pulling live USD rates from Frankfurter.

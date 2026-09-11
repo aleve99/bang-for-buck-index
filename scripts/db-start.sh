@@ -1,44 +1,49 @@
 #!/usr/bin/env bash
-# Idempotently start the local Postgres cluster and ensure the app DB exists.
+# Start the local Supabase stack (Postgres, Auth, REST, Studio, Mailpit).
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=/dev/null
-source "$DIR/db-env.sh"
+ROOT="$(cd "$DIR/.." && pwd)"
+cd "$ROOT"
 
-bash "$DIR/db-init.sh"
-
-if pg_ctl -D "$PGDATA" status >/dev/null 2>&1; then
-  echo "[db-start] Postgres already running"
-else
-  # A disk snapshot taken while Postgres was running leaves a stale
-  # postmaster.pid behind. Remove it when no live server owns it so the
-  # cluster starts cleanly on a fresh boot.
-  if [ -f "$PGDATA/postmaster.pid" ]; then
-    STALE_PID="$(head -n 1 "$PGDATA/postmaster.pid" 2>/dev/null || true)"
-    if [ -z "$STALE_PID" ] || ! kill -0 "$STALE_PID" 2>/dev/null; then
-      echo "[db-start] Removing stale postmaster.pid"
-      rm -f "$PGDATA/postmaster.pid"
+ensure_docker() {
+  if docker info >/dev/null 2>&1; then
+    :
+  else
+    echo "[db-start] Starting dockerd"
+    sudo dockerd >/tmp/dockerd.log 2>&1 &
+    for _ in $(seq 1 40); do
+      if docker info >/dev/null 2>&1; then
+        break
+      fi
+      sleep 1
+    done
+    if ! docker info >/dev/null 2>&1; then
+      echo "[db-start] Docker failed to start. See /tmp/dockerd.log" >&2
+      exit 1
     fi
   fi
-  echo "[db-start] Starting Postgres on port $PGPORT"
-  mkdir -p "$(dirname "$PG_LOG")"
-  pg_ctl -D "$PGDATA" \
-    -o "-p $PGPORT -k $PG_SOCKET_DIR" \
-    -l "$PG_LOG" -w start
-fi
 
-# Wait for readiness.
-for _ in $(seq 1 30); do
-  if pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" >/dev/null 2>&1; then
-    break
+  # Docker 29 + nft + bridge netfilter times out container-to-container
+  # traffic on the supabase bridge (Auth/REST cannot reach Postgres).
+  if [ "$(cat /proc/sys/net/bridge/bridge-nf-call-iptables 2>/dev/null || echo 1)" != "0" ]; then
+    echo "[db-start] Disabling bridge-nf-call-iptables for container networking"
+    sudo sysctl -w net.bridge.bridge-nf-call-iptables=0 >/dev/null
+    sudo sysctl -w net.bridge.bridge-nf-call-ip6tables=0 >/dev/null
   fi
-  sleep 1
-done
+}
 
-if ! psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -tAc \
-  "SELECT 1 FROM pg_database WHERE datname='$PG_DB'" | grep -q 1; then
-  echo "[db-start] Creating database $PG_DB"
-  createdb -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" "$PG_DB"
+ensure_docker
+
+if [ ! -f "$ROOT/supabase/config.toml" ]; then
+  echo "[db-start] supabase/config.toml missing — run: pnpm supabase init"
+  exit 1
 fi
 
-echo "[db-start] Ready: postgresql://$PGUSER@$PGHOST:$PGPORT/$PG_DB"
+# Analytics/storage extras are optional for the beer MVP.
+EXCLUDES="${SUPABASE_EXCLUDES:-realtime,storage-api,imgproxy,logflare,vector,edge-runtime,supavisor}"
+
+echo "[db-start] supabase start"
+pnpm exec supabase start -x "$EXCLUDES"
+
+bash "$DIR/sync-supabase-env.sh"
+echo "[db-start] Ready"

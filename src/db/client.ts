@@ -3,7 +3,7 @@ import postgres from "postgres";
 import * as schema from "./schema";
 
 const connectionString =
-  process.env.DATABASE_URL ?? "postgresql://postgres@127.0.0.1:5432/purehop";
+  process.env.DATABASE_URL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
 
 const globalForDb = globalThis as unknown as {
   __purehopSql?: ReturnType<typeof postgres>;
