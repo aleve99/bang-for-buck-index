@@ -81,6 +81,7 @@ export function Navbar({
             <nav className="flex items-center gap-1">
               <NavLink href="/">Leaderboard</NavLink>
               <NavLink href="/submit">Submit Price</NavLink>
+              <NavLink href="/admin">Admin</NavLink>
               <Button
                 type="button"
                 className="ml-1 h-9 px-3"

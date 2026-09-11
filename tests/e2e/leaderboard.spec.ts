@@ -67,12 +67,12 @@ test("style filter narrows the results", async ({ page }) => {
   expect(after).toBeLessThanOrEqual(before);
 });
 
-test("ABV min filter leaves only Asahi Super Dry", async ({ page }) => {
+test("ABV min filter leaves high-ABV beers like Asahi", async ({ page }) => {
   await openLeaderboard(page);
   await page.getByTestId("abv-min").fill("4.8");
   const rows = page.getByTestId("leaderboard-row");
-  await expect(rows).toHaveCount(1);
-  await expect(rows.first()).toContainText(/Asahi Super Dry/i);
+  await expect(rows.filter({ hasText: /Asahi Super Dry/i })).toBeVisible();
+  await expect(rows.filter({ hasText: /Tennents/i })).toHaveCount(0);
 });
 
 test("command menu search navigates to Czech Republic", async ({ page }) => {

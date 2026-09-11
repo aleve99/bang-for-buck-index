@@ -1,20 +1,14 @@
 #!/usr/bin/env bash
-# Idempotently initialize the user-owned Postgres cluster.
+# Ensure supabase/config.toml exists. Migrations/seed already live under supabase/.
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=/dev/null
-source "$DIR/db-env.sh"
+ROOT="$(cd "$DIR/.." && pwd)"
+cd "$ROOT"
 
-bash "$DIR/db-install-postgres.sh"
-# Re-source so PATH picks up newly installed Postgres binaries.
-# shellcheck source=/dev/null
-source "$DIR/db-env.sh"
-
-if [ ! -f "$PGDATA/PG_VERSION" ]; then
-  echo "[db-init] Creating cluster at $PGDATA"
-  mkdir -p "$PGDATA"
-  initdb -D "$PGDATA" -U "$PGUSER" \
-    --auth=trust --auth-host=trust --auth-local=trust >/dev/null
-else
-  echo "[db-init] Cluster already exists at $PGDATA"
+if [ -f "$ROOT/supabase/config.toml" ]; then
+  echo "[db-init] supabase/config.toml already present"
+  exit 0
 fi
+
+pnpm exec supabase init --yes
+echo "[db-init] Created supabase/config.toml"
