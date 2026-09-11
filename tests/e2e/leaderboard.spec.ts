@@ -70,6 +70,7 @@ test("style filter narrows the results", async ({ page }) => {
 test("ABV min filter leaves high-ABV beers like Asahi", async ({ page }) => {
   await openLeaderboard(page);
   await page.getByTestId("abv-min").fill("4.8");
+  await expect(page.getByTestId("abv-range-label")).toContainText("4.8%");
   const rows = page.getByTestId("leaderboard-row");
   await expect(rows.filter({ hasText: /Asahi Super Dry/i })).toBeVisible();
   await expect(rows.filter({ hasText: /Tennents/i })).toHaveCount(0);
@@ -109,9 +110,11 @@ test("submit form shows a live CLPA preview", async ({ page }) => {
 
   await page.getByLabel("Volume per unit (ml)").fill("500");
   await page.getByLabel("Price (local)").fill("1.00");
+  await page.getByTestId("receipt-input").setInputFiles("tests/e2e/fixtures/receipt.png");
   await page.getByRole("button", { name: "Next" }).click();
 
   await expect(page.getByTestId("submit-step")).toBeVisible();
   // 1.00 / (1 * 0.5 * 0.05) = 40.00
   await expect(page.getByTestId("clpa-preview")).toHaveText("40.00");
+  await expect(page.getByTestId("receipt-preview")).toBeVisible();
 });

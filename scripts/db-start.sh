@@ -39,8 +39,8 @@ if [ ! -f "$ROOT/supabase/config.toml" ]; then
   exit 1
 fi
 
-# Analytics/storage extras are optional for the beer MVP.
-EXCLUDES="${SUPABASE_EXCLUDES:-realtime,storage-api,imgproxy,logflare,vector,edge-runtime,supavisor}"
+# Analytics extras are optional. Storage is required for receipt uploads.
+EXCLUDES="${SUPABASE_EXCLUDES:-realtime,imgproxy,logflare,vector,edge-runtime,supavisor}"
 
 echo "[db-start] supabase start"
 pnpm exec supabase start -x "$EXCLUDES"

@@ -2,6 +2,7 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { beers, countries, exchangeRates, priceEntries } from "@/db/schema";
 import { clpaToEur, clpaToPpp, clpaToUsd } from "@/lib/calculations";
+import { signedReceiptUrl } from "@/lib/storage";
 import type { LeaderboardRow, PendingPriceRow, SearchCatalog } from "@/types";
 
 const EUR_RATE_FALLBACK = 1.085;
@@ -133,14 +134,17 @@ export async function getPendingPrices(): Promise<PendingPriceRow[]> {
     eurRate(),
   ]);
 
-  return rows.map((r) => {
-    const raw = r as RawLeaderboardRow;
-    return {
-      ...toLeaderboardRow(raw, eurRateToUsd),
-      createdAt: raw.createdAt.toISOString(),
-      receiptImageUrl: raw.receiptImageUrl,
-    };
-  });
+  return Promise.all(
+    rows.map(async (r) => {
+      const raw = r as RawLeaderboardRow;
+      return {
+        ...toLeaderboardRow(raw, eurRateToUsd),
+        createdAt: raw.createdAt.toISOString(),
+        receiptImageUrl: raw.receiptImageUrl,
+        receiptDisplayUrl: await signedReceiptUrl(raw.receiptImageUrl),
+      };
+    }),
+  );
 }
 
 export async function getCountries() {

@@ -18,6 +18,7 @@ export function PendingTable({ rows }: { rows: PendingPriceRow[] }) {
         <thead>
           <tr className="border-b border-border bg-surface-2 text-left text-xs uppercase tracking-wide text-muted">
             <th className="px-3 py-3">Beer</th>
+            <th className="px-3 py-3">Receipt</th>
             <th className="px-3 py-3">Where</th>
             <th className="px-3 py-3">Package</th>
             <th className="px-3 py-3">Price</th>
@@ -37,6 +38,26 @@ export function PendingTable({ rows }: { rows: PendingPriceRow[] }) {
                 <div className="text-xs text-muted">
                   {r.brewery ?? "—"} · {r.style} · {r.abv.toFixed(1)}%
                 </div>
+              </td>
+              <td className="px-3 py-3">
+                {r.receiptDisplayUrl ? (
+                  <a
+                    href={r.receiptDisplayUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block w-16"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={r.receiptDisplayUrl}
+                      alt={`Receipt for ${r.beerName}`}
+                      className="h-16 w-16 rounded-md border border-border bg-white object-contain"
+                      data-testid="receipt-thumb"
+                    />
+                  </a>
+                ) : (
+                  <span className="text-xs text-muted">—</span>
+                )}
               </td>
               <td className="px-3 py-3">
                 <div>

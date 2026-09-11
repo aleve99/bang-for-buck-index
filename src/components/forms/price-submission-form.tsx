@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { submitPrice, type SubmitPriceState } from "@/actions/submit-price";
 import { computeCLPA } from "@/lib/calculations";
 import { Button, Card } from "@/components/ui";
@@ -30,6 +30,22 @@ export function PriceSubmissionForm({
   const [packSize, setPackSize] = useState(1);
   const [volumeMl, setVolumeMl] = useState(500);
   const [priceLocal, setPriceLocal] = useState(0.49);
+  const [receiptName, setReceiptName] = useState<string | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (receiptPreview) URL.revokeObjectURL(receiptPreview);
+    };
+  }, [receiptPreview]);
+
+  function onReceiptChange(file: File | null) {
+    setReceiptPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return file ? URL.createObjectURL(file) : null;
+    });
+    setReceiptName(file?.name ?? null);
+  }
 
   let preview: { clpaLocal: number; pureAlcoholLiters: number } | null = null;
   try {
@@ -86,11 +102,16 @@ export function PriceSubmissionForm({
           onPackSizeChange={setPackSize}
           onVolumeMlChange={setVolumeMl}
           onPriceLocalChange={setPriceLocal}
+          onReceiptChange={onReceiptChange}
           error={err}
         />
       </div>
       <div hidden={step !== 3}>
-        <ClpaPreview preview={preview} />
+        <ClpaPreview
+          preview={preview}
+          receiptPreview={receiptPreview}
+          receiptName={receiptName}
+        />
       </div>
 
       <div className="flex gap-2">

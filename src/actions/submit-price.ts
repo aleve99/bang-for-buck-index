@@ -6,6 +6,7 @@ import { db } from "@/db/client";
 import { beers, countries, exchangeRates, priceEntries } from "@/db/schema";
 import { computeCLPA } from "@/lib/calculations";
 import { PriceSubmissionSchema } from "@/lib/price-schema";
+import { takeReceiptFile, uploadReceipt } from "@/lib/storage";
 
 export interface SubmitPriceState {
   ok: boolean;
@@ -19,6 +20,7 @@ export async function submitPrice(
   _prev: SubmitPriceState | null,
   formData: FormData,
 ): Promise<SubmitPriceState> {
+  const receiptFile = takeReceiptFile(formData);
   const parsed = PriceSubmissionSchema.safeParse(Object.fromEntries(formData));
 
   if (!parsed.success) {
@@ -55,6 +57,20 @@ export async function submitPrice(
     abv: input.abv,
     priceLocal: input.priceLocal,
   });
+
+  let receiptImageUrl: string | null = input.receiptImageUrl || null;
+  if (receiptFile) {
+    try {
+      receiptImageUrl = await uploadReceipt(receiptFile);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Receipt upload failed";
+      return {
+        ok: false,
+        message,
+        fieldErrors: { receipt: [message] },
+      };
+    }
+  }
 
   // Reuse an existing canonical beer if name + country match, otherwise create.
   const existing = await db
@@ -94,7 +110,7 @@ export async function submitPrice(
     currencyCode: input.currencyCode.toUpperCase(),
     pureAlcoholLiters: pureAlcoholLiters.toFixed(5),
     clpaLocal: clpaLocal.toFixed(2),
-    receiptImageUrl: input.receiptImageUrl || null,
+    receiptImageUrl,
     // Crowdsourced entries default to unverified pending moderation.
     verified: false,
   });
@@ -102,6 +118,7 @@ export async function submitPrice(
   const countryCode = input.countryCode.toUpperCase();
   revalidatePath("/");
   revalidatePath("/submit");
+  revalidatePath("/admin");
   revalidatePath(`/country/${countryCode}`);
   revalidatePath(`/styles/${encodeURIComponent(input.style)}`);
 

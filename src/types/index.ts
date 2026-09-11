@@ -50,5 +50,8 @@ export interface SearchCatalog {
 
 export interface PendingPriceRow extends LeaderboardRow {
   createdAt: string;
+  /** Stored value: Storage object path or a legacy absolute URL. */
   receiptImageUrl: string | null;
+  /** Time-limited URL the admin UI can render. */
+  receiptDisplayUrl: string | null;
 }
