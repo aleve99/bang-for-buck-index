@@ -47,3 +47,8 @@ export interface SearchCatalog {
   countries: SearchCountry[];
   styles: string[];
 }
+
+export interface PendingPriceRow extends LeaderboardRow {
+  createdAt: string;
+  receiptImageUrl: string | null;
+}

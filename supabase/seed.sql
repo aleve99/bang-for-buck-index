@@ -82,3 +82,11 @@ INSERT INTO public.price_entries
 VALUES
 ('f0eebc99-9c0b-4ef8-bb6d-6bb9bd380a66', 'GB', 'London', 'bar_pub', 1, 500, 5.80, 'GBP', 0.02100, 276.19, true)
 ON CONFLICT DO NOTHING;
+
+-- 8. Unverified crowdsourced row (pending /admin moderation)
+-- Ethanol = 6 * 0.355 * 0.042 = 0.08946 L. CLPA = 8.99 / 0.08946 = $100.49 / L
+INSERT INTO public.price_entries
+(beer_id, country_code, city, venue_type, pack_size, volume_ml, price_local, currency_code, pure_alcohol_liters, clpa_local, verified)
+VALUES
+('c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33', 'US', 'Austin', 'convenience_store', 6, 355, 8.99, 'USD', 0.08946, 100.49, false)
+ON CONFLICT DO NOTHING;

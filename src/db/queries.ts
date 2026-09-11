@@ -1,10 +1,91 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { beers, countries, exchangeRates, priceEntries } from "@/db/schema";
 import { clpaToEur, clpaToPpp, clpaToUsd } from "@/lib/calculations";
-import type { LeaderboardRow, SearchCatalog } from "@/types";
+import type { LeaderboardRow, PendingPriceRow, SearchCatalog } from "@/types";
 
 const EUR_RATE_FALLBACK = 1.085;
+
+const leaderboardSelect = {
+  entryId: priceEntries.id,
+  beerId: beers.id,
+  beerName: beers.name,
+  brewery: beers.brewery,
+  countryCode: priceEntries.countryCode,
+  countryName: countries.name,
+  style: beers.style,
+  abv: beers.abv,
+  venueType: priceEntries.venueType,
+  city: priceEntries.city,
+  packSize: priceEntries.packSize,
+  volumeMl: priceEntries.volumeMl,
+  priceLocal: priceEntries.priceLocal,
+  currencyCode: priceEntries.currencyCode,
+  clpaLocal: priceEntries.clpaLocal,
+  rateToUsd: exchangeRates.rateToUsd,
+  pppFactor: countries.pppFactor,
+  createdAt: priceEntries.createdAt,
+  receiptImageUrl: priceEntries.receiptImageUrl,
+};
+
+type RawLeaderboardRow = {
+  entryId: string;
+  beerId: string;
+  beerName: string;
+  brewery: string | null;
+  countryCode: string;
+  countryName: string;
+  style: string;
+  abv: string;
+  venueType: string;
+  city: string | null;
+  packSize: number;
+  volumeMl: number;
+  priceLocal: string;
+  currencyCode: string;
+  clpaLocal: string;
+  rateToUsd: string;
+  pppFactor: string | null;
+  createdAt: Date;
+  receiptImageUrl: string | null;
+};
+
+function toLeaderboardRow(r: RawLeaderboardRow, eurRateToUsd: number): LeaderboardRow {
+  const clpaLocal = Number(r.clpaLocal);
+  const clpaUsd = clpaToUsd(clpaLocal, Number(r.rateToUsd));
+  const clpaEur = clpaToEur(clpaUsd, eurRateToUsd);
+  const clpaPpp = clpaToPpp(clpaUsd, Number(r.pppFactor ?? 1));
+  return {
+    entryId: r.entryId,
+    beerId: r.beerId,
+    beerName: r.beerName,
+    brewery: r.brewery,
+    countryCode: r.countryCode,
+    countryName: r.countryName,
+    style: r.style,
+    abv: Number(r.abv),
+    venueType: r.venueType,
+    city: r.city,
+    packSize: r.packSize,
+    volumeMl: r.volumeMl,
+    priceLocal: Number(r.priceLocal),
+    currencyCode: r.currencyCode,
+    clpaLocal,
+    clpaUsd,
+    clpaEur,
+    clpaPpp,
+  };
+}
+
+async function eurRate(): Promise<number> {
+  const [eurRateRow] = await db
+    .select({ rateToUsd: exchangeRates.rateToUsd })
+    .from(exchangeRates)
+    .where(eq(exchangeRates.currencyCode, "EUR"))
+    .limit(1);
+  const eurRateRaw = Number(eurRateRow?.rateToUsd);
+  return eurRateRaw > 0 ? eurRateRaw : EUR_RATE_FALLBACK;
+}
 
 interface LeaderboardFilters {
   countryCode?: string;
@@ -21,27 +102,9 @@ export async function getLeaderboard(
   if (countryCode) conditions.push(eq(priceEntries.countryCode, countryCode));
   if (style) conditions.push(eq(beers.style, style));
 
-  const [rows, eurRateRow] = await Promise.all([
+  const [rows, eurRateToUsd] = await Promise.all([
     db
-      .select({
-        entryId: priceEntries.id,
-        beerId: beers.id,
-        beerName: beers.name,
-        brewery: beers.brewery,
-        countryCode: priceEntries.countryCode,
-        countryName: countries.name,
-        style: beers.style,
-        abv: beers.abv,
-        venueType: priceEntries.venueType,
-        city: priceEntries.city,
-        packSize: priceEntries.packSize,
-        volumeMl: priceEntries.volumeMl,
-        priceLocal: priceEntries.priceLocal,
-        currencyCode: priceEntries.currencyCode,
-        clpaLocal: priceEntries.clpaLocal,
-        rateToUsd: exchangeRates.rateToUsd,
-        pppFactor: countries.pppFactor,
-      })
+      .select(leaderboardSelect)
       .from(priceEntries)
       .innerJoin(beers, eq(priceEntries.beerId, beers.id))
       .innerJoin(countries, eq(priceEntries.countryCode, countries.code))
@@ -49,45 +112,35 @@ export async function getLeaderboard(
       .where(and(...conditions))
       .orderBy(asc(priceEntries.clpaLocal))
       .limit(limit),
-    db
-      .select({ rateToUsd: exchangeRates.rateToUsd })
-      .from(exchangeRates)
-      .where(eq(exchangeRates.currencyCode, "EUR"))
-      .limit(1)
-      .then((r) => r[0]),
+    eurRate(),
   ]);
 
-  const eurRateRaw = Number(eurRateRow?.rateToUsd);
-  const eurRateToUsd = eurRateRaw > 0 ? eurRateRaw : EUR_RATE_FALLBACK;
-
   return rows
-    .map((r) => {
-      const clpaLocal = Number(r.clpaLocal);
-      const clpaUsd = clpaToUsd(clpaLocal, Number(r.rateToUsd));
-      const clpaEur = clpaToEur(clpaUsd, eurRateToUsd);
-      const clpaPpp = clpaToPpp(clpaUsd, Number(r.pppFactor ?? 1));
-      return {
-        entryId: r.entryId,
-        beerId: r.beerId,
-        beerName: r.beerName,
-        brewery: r.brewery,
-        countryCode: r.countryCode,
-        countryName: r.countryName,
-        style: r.style,
-        abv: Number(r.abv),
-        venueType: r.venueType,
-        city: r.city,
-        packSize: r.packSize,
-        volumeMl: r.volumeMl,
-        priceLocal: Number(r.priceLocal),
-        currencyCode: r.currencyCode,
-        clpaLocal,
-        clpaUsd,
-        clpaEur,
-        clpaPpp,
-      } satisfies LeaderboardRow;
-    })
+    .map((r) => toLeaderboardRow(r as RawLeaderboardRow, eurRateToUsd))
     .sort((a, b) => a.clpaUsd - b.clpaUsd);
+}
+
+export async function getPendingPrices(): Promise<PendingPriceRow[]> {
+  const [rows, eurRateToUsd] = await Promise.all([
+    db
+      .select(leaderboardSelect)
+      .from(priceEntries)
+      .innerJoin(beers, eq(priceEntries.beerId, beers.id))
+      .innerJoin(countries, eq(priceEntries.countryCode, countries.code))
+      .innerJoin(exchangeRates, eq(priceEntries.currencyCode, exchangeRates.currencyCode))
+      .where(eq(priceEntries.verified, false))
+      .orderBy(desc(priceEntries.createdAt)),
+    eurRate(),
+  ]);
+
+  return rows.map((r) => {
+    const raw = r as RawLeaderboardRow;
+    return {
+      ...toLeaderboardRow(raw, eurRateToUsd),
+      createdAt: raw.createdAt.toISOString(),
+      receiptImageUrl: raw.receiptImageUrl,
+    };
+  });
 }
 
 export async function getCountries() {
