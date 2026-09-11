@@ -51,7 +51,7 @@ export function PendingTable({ rows }: { rows: PendingPriceRow[] }) {
                     <img
                       src={r.receiptDisplayUrl}
                       alt={`Receipt for ${r.beerName}`}
-                      className="h-16 w-16 rounded-md border border-border object-cover"
+                      className="h-16 w-16 rounded-md border border-border bg-white object-contain"
                       data-testid="receipt-thumb"
                     />
                   </a>
